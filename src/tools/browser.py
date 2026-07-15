@@ -53,18 +53,26 @@ class BrowserSession:
 
     def start(self):
         from playwright.sync_api import sync_playwright
+        import shutil
         self._playwright = sync_playwright().start()
-        self.browser = self._playwright.chromium.launch(
-            headless=self.headless,
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
-        )
+
+        # Use system chromium if available (Streamlit Cloud)
+        chromium_path = shutil.which("chromium") or shutil.which("chromium-browser")
+
+        launch_kwargs = {
+            "headless": True,
+            "args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+        }
+        if chromium_path:
+            launch_kwargs["executable_path"] = chromium_path
+
+        self.browser = self._playwright.chromium.launch(**launch_kwargs)
         self.context = self.browser.new_context(
             viewport={"width": 1280, "height": 800},
             user_agent="AutoQA-Bot/1.0 (automated testing)",
         )
         self.page = self.context.new_page()
         self.page.set_default_timeout(self.timeout)
-        logger.info("Browser session started")
 
     def stop(self):
         try:
